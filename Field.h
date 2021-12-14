@@ -1,3 +1,5 @@
+#include "Vec.h"
+
 enum class CellType {
 	SAFE,
 	MEDIUM,
@@ -9,16 +11,4 @@ public:
 	CellType type;
 	int x;
 	int y;
-
-	int getX() {
-		return x;
-	}
-
-	int getY() {
-		return y;
-	}
-
-	CellType getType() {
-		return type;
-	}
 };
