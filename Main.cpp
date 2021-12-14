@@ -115,7 +115,7 @@ void generateFoodFieldLayer() {
 	}
 }
 
-int entityC = 0;	// Entity counter
+int entityC = 0;	// Entity counter 
 void generateEntityFieldLayer() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
