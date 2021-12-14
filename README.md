@@ -9,5 +9,6 @@ Settings (in Main code):
 Field size (width and height),
 Chances of object spawning (food and cells),
 All zones sizes.
-![Output Field Screenshot](https://user-images.githubusercontent.com/69710095/146010745-2e80c4f1-a050-4705-8545-0aa07c8ff28a.png)
+\n
+![Output Field Screenshot](https://user-images.githubusercontent.com/69710095/146010745-2e80c4f1-a050-4705-8545-0aa07c8ff28a.png)\n
 ( '@' - entity (cell), '*' - food, '|' - zones border)
