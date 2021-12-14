@@ -11,4 +11,4 @@ public:
 	CellType type;
 	int x;
 	int y;
-};
+}; 
