@@ -7,14 +7,16 @@
 using namespace std;
 typedef long long ll;
 
+ll generations = 100;		// Generations count
+
 // Preset strings
 string debug_prefix = "[DEBUG]\t";
 string info_prefix = "[INFO]\t";
 
 // Settings
-float safeZoneC = 1.0;
-float mediumZoneC = 0.0;
-float dangerZoneC = 0.0;
+float safeZoneC = 0.5;
+float mediumZoneC = 0.3;
+float dangerZoneC = 0.2;
 
 float basicSafeZoneC = 0.5;
 float basicMediumZoneC = 0.3;
@@ -22,20 +24,20 @@ float basicDangerZoneC = 0.2;
 
 // Chances to generate food in cell for zones ( 0 -> 1 )
 float safeFoodChance = 0.2;
-float mediumFoodChance = 0.1;
-float dangerFoodChance = 0.2;
+float mediumFoodChance = 0.3;
+float dangerFoodChance = 0.35;
 
 // Chance to generate entity in cell;
 float entityGenerateChance = 0.06;
 
-const int fieldWidth = 15;
-const int fieldHeight = 15;
+const int fieldWidth = 50;
+const int fieldHeight = 50;
 
 FieldCell fieldZones[fieldHeight + 1][fieldWidth + 1];	// Basic field with zones
 ObjectType fieldFood[fieldHeight + 1][fieldWidth + 1];	// Objects
 Entity fieldEntity[fieldHeight + 1][fieldWidth + 1];	// Entities
 
-int random(int min, int max)
+int random(int min, int max)	// randim func
 {
 	static bool flag;
 	if (!flag)
@@ -73,6 +75,7 @@ void generateZoneFieldLayer() {
 	}
 }
 
+int foodCount = 0;
 void generateFoodFieldLayer() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
@@ -81,24 +84,30 @@ void generateFoodFieldLayer() {
 			if (type == CellType::SAFE) {
 				int c = safeFoodChance * 100;
 				int rnd = random(1, 100);
-				if (rnd <= c)
+				if (rnd <= c) {
 					fieldFood[i][j] = ObjectType::FOOD;
+					foodCount++;
+				}
 				else
 					fieldFood[i][j] = ObjectType::NONE;
 			}
 			else if (type == CellType::MEDIUM) {
 				int c = mediumFoodChance * 100;
 				int rnd = random(1, 100);
-				if (rnd <= c)
+				if (rnd <= c) {
 					fieldFood[i][j] = ObjectType::FOOD;
+					foodCount++;
+				}
 				else
 					fieldFood[i][j] = ObjectType::NONE;
 			}
 			else {
 				int c = dangerFoodChance * 100;
 				int rnd = random(1, 100);
-				if (rnd <= c)
+				if (rnd <= c) {
 					fieldFood[i][j] = ObjectType::FOOD;
+					foodCount++;
+				}
 				else
 					fieldFood[i][j] = ObjectType::NONE;
 			}
@@ -155,9 +164,10 @@ void printFields() {	// Print food field and entity layer on one layer
 		}
 		cout << "\n";
 	}
-	//cout << info_prefix << "Entities: " << entityC;
+	cout << info_prefix << "Entities: " << entityC << "\t Food: " << foodCount;
 }
 
+// Find nearest element from coordinates
 Vec findNearestPoint(Vec pos, ObjectType obj, int rad) {
 	Vec pos1 = { pos.x - rad, pos.y - rad };
 	Vec pos2 = { pos.x + rad, pos.y + rad };
@@ -196,20 +206,4 @@ Vec findNearestPoint(Vec pos, ObjectType obj, int rad) {
 int main() {
 	init();
 	printFields();
-	ll generations = 100;		// Generations count
-	int x = -1, y = -1;
-	for (int i = 1; i < fieldHeight + 1; i++) {
-		for (int j = 1; j < fieldWidth + 1; j++) {
-			if (fieldEntity[i][j].type == ObjectType::CELL) {
-				x = j;
-				y = i;
-				break;
-			}
-		}
-		if (x != -1 && y != -1)
-			break;
-	}
-	Vec cords = findNearestPoint({x, y}, ObjectType::FOOD, 20);
-	cout << "\n" << x << " " << y << "\n";
-	cout << cords.x << " " << cords.y;
 }
