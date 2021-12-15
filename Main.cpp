@@ -1,10 +1,12 @@
 #include <iostream>
 #include <string>
 #include <cmath>
+#include <vector>
 #include "Field.h"
 #include "Object.h"
 #include "Vec.h"
 #include "DefaultSettings.h"
+#include "Skill.h"
 using namespace std;
 typedef long long ll;
 
@@ -22,12 +24,16 @@ float dangerZoneC = 0.2;
 ll generations = 100;		// Generations count
 
 // Chances to generate food in cell for zones 
+
 float safeFoodChance = 0.2;
 float mediumFoodChance = 0.3;
 float dangerFoodChance = 0.35;
 
+float foodSaturation = 2.0;		// Energy that food can give
+
 // Chance to generate entity in cell;
 float entityGenerateChance = 0.05;
+CellType entityGenerationCell = CellType::SAFE;
 
 // Field size (more than 10)
 const int fieldWidth = 50;
@@ -36,6 +42,15 @@ const int fieldHeight = 50;
 FieldCell fieldZones[fieldHeight + 1][fieldWidth + 1];	// Basic field with zones
 ObjectType fieldFood[fieldHeight + 1][fieldWidth + 1];	// Objects
 Entity fieldEntity[fieldHeight + 1][fieldWidth + 1];	// Entities
+vector <Entity> allEntitiesList;
+
+// Skills values on entity creation
+// What each skill does you can see in 'Skills.h'
+float eSpeed = 1.0;
+float eArmor = 1.0;
+float eEnergy = 10;
+int eVision = 7;
+float eExtra = 1.0;
 
 // Random function
 int random(int min, int max)
@@ -95,6 +110,15 @@ int generateZoneFieldLayer() {
 	return 1;
 }
 
+// Returns true with chance
+bool makeChance(float chance) {
+	int chanceRnd = chance * 100;
+	int rnd = random(1, 100);
+	if (rnd <= chanceRnd)
+		return true;
+	return false;
+}
+
 int foodCount = 0;	// Count of food
 // Creating food layer
 int generateFoodFieldLayer() {
@@ -103,9 +127,7 @@ int generateFoodFieldLayer() {
 			auto x = fieldZones[i][j];
 			auto type = x.type;
 			if (type == CellType::SAFE) {
-				int c = safeFoodChance * 100;
-				int rnd = random(1, 100);
-				if (rnd <= c) {
+				if (makeChance(safeFoodChance)) {
 					fieldFood[i][j] = ObjectType::FOOD;
 					foodCount++;
 				}
@@ -113,9 +135,7 @@ int generateFoodFieldLayer() {
 					fieldFood[i][j] = ObjectType::NONE;
 			}
 			else if (type == CellType::MEDIUM) {
-				int c = mediumFoodChance * 100;
-				int rnd = random(1, 100);
-				if (rnd <= c) {
+				if (makeChance(mediumFoodChance)) {
 					fieldFood[i][j] = ObjectType::FOOD;
 					foodCount++;
 				}
@@ -123,9 +143,7 @@ int generateFoodFieldLayer() {
 					fieldFood[i][j] = ObjectType::NONE;
 			}
 			else {
-				int c = dangerFoodChance * 100;
-				int rnd = random(1, 100);
-				if (rnd <= c) {
+				if (makeChance(dangerFoodChance)) {
 					fieldFood[i][j] = ObjectType::FOOD;
 					foodCount++;
 				}
@@ -141,27 +159,28 @@ int generateFoodFieldLayer() {
 	return 1;
 }
 
+Skill basicEntitySkill = { eSpeed, eArmor, eEnergy, 5, 1.0, 0.0 };
+Skill basicNoneTypeSkill = { 0.0, 0.0, 0.0, 0, 0.0, 0.0 };
 int entityC = 0;	// Entity counter
 // Crating entity layer
 int generateEntityFieldLayer() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
-			if (fieldZones[i][j].type != CellType::SAFE) {
-				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, 0.0, 0.0, 0.0, 0.0, 0.0, 0};
+			if (fieldZones[i][j].type != entityGenerationCell) {
+				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, basicNoneTypeSkill, 0 };
 				continue;
 			}
 			if (fieldFood[i][j] == ObjectType::FOOD) {
-				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, 0.0, 0.0, 0.0, 0.0, 0.0, 0 };
+				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, basicNoneTypeSkill, 0 };
 				continue;
-			}		
-			int c = entityGenerateChance * 100;
-			int rnd = random(1, 100);
-			if (rnd <= c) {
-				fieldEntity[i][j] = { ObjectType::CELL, {j, i}, 1.0, 1.0, 10.0, 1.0, 0.0, 0 };
+			}
+			if (makeChance(entityGenerateChance)) {
+				fieldEntity[i][j] = { ObjectType::CELL, {j, i}, basicEntitySkill, 0 };
+				allEntitiesList.push_back(fieldEntity[i][j]);
 				entityC++;
 			}
 			else
-				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, 0.0, 0.0, 0.0, 0.0, 0.0, 0 };
+				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, basicNoneTypeSkill, 0 };
 		}
 	}
 	if (entityC == 0) {
@@ -208,20 +227,23 @@ Vec checkCords(Vec pos) {
 	return pos;
 }
 
-// Find nearest food from coordinates
-Vec findNearestFood(Vec pos, int rad) {
+float generateEnergyCons(Entity* entity, float length) {
+	return length * entity->skill.extra / entity->skill.speed;
+}
+
+Vec findNearestFood(Vec pos, int rad, Entity* entity) {
 	Vec pos1 = checkCords({ pos.x - rad, pos.y - rad });
 	Vec pos2 = checkCords({ pos.x + rad, pos.y + rad });
-	float min = rad*rad;
-	Vec minV = {-1, -1};
+	float min = rad * rad;
+	Vec minV = { -1, -1 };
 	for (int i = pos1.y; i < pos2.y; i++) {
 		for (int j = pos1.x; j < pos2.x; j++) {
 			int x = pos.x, y = pos.y;
 			if (fieldFood[i][j] == ObjectType::FOOD) {
-				float length;
 				int a = abs(j - x);
 				int b = abs(i - y);
-				length = sqrt(a*a + b*b);
+				float length;
+				length = sqrt(a * a + b * b);
 				if (length < min) {
 					min = length;
 					minV = { j, i };
@@ -229,7 +251,24 @@ Vec findNearestFood(Vec pos, int rad) {
 			}
 		}
 	}
+	entity->skill.usedEnergy += generateEnergyCons(entity, min);
 	return minV;
+}
+
+void onEatFood(Vec pos, Entity* entity) {
+	fieldFood[pos.y][pos.x] = ObjectType::NONE;
+	entity->skill.usedEnergy -= foodSaturation;
+}
+
+void onEntityMove(Vec pos, Vec to, Entity* entity) {
+	auto a = fieldEntity[pos.y][pos.x];
+	fieldEntity[pos.y][pos.x] = fieldEntity[to.y][to.x];
+	fieldEntity[to.y][to.x] = a;
+	if (fieldFood[to.y][to.x] == ObjectType::FOOD)
+		onEatFood(to, entity);
+	entity->moves++;
+	entity->pos.x = to.x;
+	entity->pos.y = to.y;
 }
 
 // Initialization function
@@ -251,4 +290,12 @@ int main() {
 		return 0;
 	}
 	printFields();
+	// TEST
+	Entity test = allEntitiesList[0];
+	Vec pos = test.pos;
+	Vec to = findNearestFood(pos, test.skill.vision, &test);
+	onEntityMove(pos, to, &test);
+	printFields();
+	cout << debug_prefix << "MOVEMENT FROM " << pos.x << " " << pos.y << "\t TO " << test.pos.x << " " << test.pos.y;
+	cout << '\n' << debug_prefix << "ENT MOVES: " << test.moves << "\tENT USED: " << test.skill.usedEnergy;
 }
