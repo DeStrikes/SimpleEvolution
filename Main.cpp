@@ -50,7 +50,7 @@ vector <Entity> allEntities;	// All entities in one list
 float eSpeed = 1.0;
 float eArmor = 1.0;
 float eEnergy = 10;
-int eVision = 7;
+int eVision = 50;
 float eExtra = 1.0;
 
 // Random function
@@ -228,9 +228,9 @@ Vec checkCords(Vec pos) {
 	if (pos.y < 1)
 		pos.y = 1;
 	if (pos.x > fieldWidth)
-		pos.x = fieldWidth + 1;
+		pos.x = fieldWidth;
 	if (pos.y > fieldHeight)
-		pos.y = fieldHeight + 1;
+		pos.y = fieldHeight;
 	return pos;
 }
 
@@ -239,8 +239,8 @@ Movement findNearestFood(Vec pos, int rad, Entity* entity) {
 	Vec pos2 = checkCords({ pos.x + rad, pos.y + rad });
 	float min = rad * rad;
 	Vec minV = { -1, -1 };
-	for (int i = pos1.y; i < pos2.y; i++) {
-		for (int j = pos1.x; j < pos2.x; j++) {
+	for (int i = pos1.y; i <= pos2.y; i++) {
+		for (int j = pos1.x; j <= pos2.x; j++) {
 			int x = pos.x, y = pos.y;
 			if (fieldFood[i][j] == ObjectType::FOOD) {
 				int a = abs(j - x);
@@ -279,6 +279,18 @@ void onEntityMove(Vec start, Movement finish, Entity* entity) {
 	entity->moves++;
 }
 
+Vec findAviableMove(Vec pos) {
+	Vec checked1 = checkCords({ pos.x - 1, pos.y - 1 });
+	Vec checked2 = checkCords({ pos.x + 1, pos.y + 1 });
+	ObjectType cell = ObjectType::CELL;
+	for (int i = checked1.y; i <= checked2.y; i++) {
+		for (int j = checked1.x; j <= checked2.x; j++) {
+			if (fieldEntity[i][j].type != cell && fieldFood[i][j] == ObjectType::NONE)
+				return { j , i };
+		}
+	}
+}
+
 // Initialization function
 int init() {
 	checkSettings();
@@ -301,13 +313,26 @@ int main() {
 	// GENERATED FIELD OUTPUT
 	printFields(true);
 
-	// EDITED FIELD OUTPUT AFTER ONE ENTITIES MOVE 
-	for (int i = 0; i < allEntities.size(); i++) {
-		Entity test = allEntities[i];
-		Vec pos = test.pos;
-		Movement to = findNearestFood(pos, test.skill.vision, &test);
-		onEntityMove(pos, to, &test);
-		allEntities[i] = test;
+	// EDITED FIELD OUTPUT AFTER ENTITIES EAT ALL FOOD
+	int moves = 0;
+	while (foodCount > 0) {
+		for (int i = 0; i < allEntities.size(); i++) {
+			Entity test = allEntities[i];
+			Vec pos = test.pos;
+			Movement to = findNearestFood(pos, test.skill.vision, &test);
+			if (to.cords.x == -1) {		// Entity can't find food
+				to = { 1, findAviableMove(pos) };
+			}
+			else {
+				foodCount--;
+			}
+			onEntityMove(pos, to, &test);
+			allEntities[i] = test;
+			moves++;
+		}
 	}
 	printFields(true);
+	cout << "MOVES\tENERGY SPENT\n";
+	for (auto x : allEntities)
+		cout << x.moves << "\t" << x.skill.usedEnergy << "\n";
 }
