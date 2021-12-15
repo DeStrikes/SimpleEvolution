@@ -7,6 +7,7 @@
 #include "Vec.h"
 #include "DefaultSettings.h"
 #include "Skill.h"
+#include "Movement.h"
 using namespace std;
 typedef long long ll;
 
@@ -17,32 +18,32 @@ string warn_prefix = "[WARNING]\t";
 string error_prefix = "[ERROR]\t";
 
 // Settings	(all values are 0 -> 1)
-float safeZoneC = 0.5;
-float mediumZoneC = 0.3;
-float dangerZoneC = 0.2;
+float safeZoneC = 1.0;
+float mediumZoneC = 0;
+float dangerZoneC = 0;
 
 ll generations = 100;		// Generations count
 
 // Chances to generate food in cell for zones 
 
-float safeFoodChance = 0.2;
+float safeFoodChance = 0.3;
 float mediumFoodChance = 0.3;
 float dangerFoodChance = 0.35;
 
-float foodSaturation = 2.0;		// Energy that food can give
+float foodSaturation = 1.0;		// Energy that food can give
 
 // Chance to generate entity in cell;
-float entityGenerateChance = 0.05;
+float entityGenerateChance = 0.08;
 CellType entityGenerationCell = CellType::SAFE;
 
 // Field size (more than 10)
-const int fieldWidth = 50;
-const int fieldHeight = 50;
+const int fieldWidth = 10;
+const int fieldHeight = 10;
 
 FieldCell fieldZones[fieldHeight + 1][fieldWidth + 1];	// Basic field with zones
 ObjectType fieldFood[fieldHeight + 1][fieldWidth + 1];	// Objects
 Entity fieldEntity[fieldHeight + 1][fieldWidth + 1];	// Entities
-vector <Entity> allEntitiesList;
+vector <Entity> allEntities;	// All entities in one list
 
 // Skills values on entity creation
 // What each skill does you can see in 'Skills.h'
@@ -176,7 +177,7 @@ int generateEntityFieldLayer() {
 			}
 			if (makeChance(entityGenerateChance)) {
 				fieldEntity[i][j] = { ObjectType::CELL, {j, i}, basicEntitySkill, 0 };
-				allEntitiesList.push_back(fieldEntity[i][j]);
+				allEntities.push_back(fieldEntity[i][j]);
 				entityC++;
 			}
 			else
@@ -233,11 +234,7 @@ Vec checkCords(Vec pos) {
 	return pos;
 }
 
-float generateEnergyCons(Entity* entity, float length) {
-	return length * entity->skill.extra / entity->skill.speed;
-}
-
-Vec findNearestFood(Vec pos, int rad, Entity* entity) {
+Movement findNearestFood(Vec pos, int rad, Entity* entity) {
 	Vec pos1 = checkCords({ pos.x - rad, pos.y - rad });
 	Vec pos2 = checkCords({ pos.x + rad, pos.y + rad });
 	float min = rad * rad;
@@ -257,24 +254,29 @@ Vec findNearestFood(Vec pos, int rad, Entity* entity) {
 			}
 		}
 	}
-	entity->skill.usedEnergy += generateEnergyCons(entity, min);
-	return minV;
+	return { min, minV };
 }
 
-void onEatFood(Vec pos, Entity* entity) {
-	fieldFood[pos.y][pos.x] = ObjectType::NONE;
-	entity->skill.usedEnergy -= foodSaturation;
-}
-
-void onEntityMove(Vec pos, Vec to, Entity* entity) {
-	auto a = fieldEntity[pos.y][pos.x];
-	fieldEntity[pos.y][pos.x] = fieldEntity[to.y][to.x];
-	fieldEntity[to.y][to.x] = a;
-	if (fieldFood[to.y][to.x] == ObjectType::FOOD)
-		onEatFood(to, entity);
+// Events
+void onEntityMove(Vec start, Movement finish, Entity* entity) {
+	Vec to = finish.cords;
+	float length = finish.length;
+	// FORMULA: length * extra / speed
+	float energySpent = length * entity->skill.extra / entity->skill.speed;
+	fieldEntity[to.y][to.x] = fieldEntity[start.y][start.x];
+	fieldEntity[start.y][start.x] = { ObjectType::NONE, {start.x, start.y}, basicNoneTypeSkill, 0 };
+	fieldEntity[to.y][to.x].skill.usedEnergy += energySpent;
+	fieldEntity[to.y][to.x].pos = to;
+	// Food eating
+	if (fieldFood[to.y][to.x] == ObjectType::FOOD) {
+		fieldFood[to.y][to.x] = ObjectType::NONE;
+		fieldEntity[to.y][to.x].skill.usedEnergy -= foodSaturation;
+		entity->skill.usedEnergy -= foodSaturation;
+	}
+	entity->skill.usedEnergy += energySpent;
+	entity->pos = to;
+	fieldEntity[to.y][to.x].moves++;
 	entity->moves++;
-	entity->pos.x = to.x;
-	entity->pos.y = to.y;
 }
 
 // Initialization function
@@ -295,6 +297,17 @@ int main() {
 	if (init() == -1) {		// If input values contain errors
 		cout << "\nProgramm stopped!";
 		return 0;
+	}
+	// GENERATED FIELD OUTPUT
+	printFields(true);
+
+	// EDITED FIELD OUTPUT AFTER ONE ENTITIES MOVE 
+	for (int i = 0; i < allEntities.size(); i++) {
+		Entity test = allEntities[i];
+		Vec pos = test.pos;
+		Movement to = findNearestFood(pos, test.skill.vision, &test);
+		onEntityMove(pos, to, &test);
+		allEntities[i] = test;
 	}
 	printFields(true);
 }
