@@ -191,8 +191,12 @@ int generateEntityFieldLayer() {
 }
 
 // Print food field and entity layer on one layer with zone borders
-void printFields() {
+void printFields(bool isBordered) {
 	for (int i = 1; i < fieldHeight + 1; i++) {
+		if(isBordered)
+			for (int i = 0; i < (fieldWidth + 1)*2; i++)
+				cout << '-';
+		cout << '\n';
 		for (int j = 1; j < fieldWidth + 1; j++) {
 			if (fieldZones[i][j].type != fieldZones[i][j - 1].type)
 				cout << "|";
@@ -206,6 +210,8 @@ void printFields() {
 				else
 					cout << "@";
 			}
+			if (isBordered)
+				cout << "|";
 		}
 		cout << " " << i << "\n";
 	}
@@ -283,19 +289,12 @@ int init() {
 	return 1;
 }
 
+
 // Main
 int main() {
 	if (init() == -1) {		// If input values contain errors
 		cout << "\nProgramm stopped!";
 		return 0;
 	}
-	printFields();
-	// TEST
-	Entity test = allEntitiesList[0];
-	Vec pos = test.pos;
-	Vec to = findNearestFood(pos, test.skill.vision, &test);
-	onEntityMove(pos, to, &test);
-	printFields();
-	cout << debug_prefix << "MOVEMENT FROM " << pos.x << " " << pos.y << "\t TO " << test.pos.x << " " << test.pos.y;
-	cout << '\n' << debug_prefix << "ENT MOVES: " << test.moves << "\tENT USED: " << test.skill.usedEnergy;
+	printFields(true);
 }
