@@ -1,4 +1,4 @@
-// Position on field
+// Position of objects on field
 #pragma once
 class Vec {
 public:

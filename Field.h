@@ -1,5 +1,7 @@
 #include "Vec.h"
 
+// Class for field cells
+
 enum class CellType {
 	SAFE,
 	MEDIUM,
@@ -11,4 +13,4 @@ public:
 	CellType type;
 	int x;
 	int y;
-}; 
+};
