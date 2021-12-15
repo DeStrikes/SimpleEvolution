@@ -4,32 +4,32 @@
 #include "Field.h"
 #include "Object.h"
 #include "Vec.h"
+#include "DefaultSettings.h"
 using namespace std;
 typedef long long ll;
 
-ll generations = 100;		// Generations count
-
-// Preset strings
+// Prefixes for output
 string debug_prefix = "[DEBUG]\t";
 string info_prefix = "[INFO]\t";
+string warn_prefix = "[WARNING]\t";
+string error_prefix = "[ERROR]\t";
 
-// Settings
+// Settings	(all values are 0 -> 1)
 float safeZoneC = 0.5;
 float mediumZoneC = 0.3;
 float dangerZoneC = 0.2;
 
-float basicSafeZoneC = 0.5;
-float basicMediumZoneC = 0.3;
-float basicDangerZoneC = 0.2;
+ll generations = 100;		// Generations count
 
-// Chances to generate food in cell for zones ( 0 -> 1 )
+// Chances to generate food in cell for zones 
 float safeFoodChance = 0.2;
 float mediumFoodChance = 0.3;
 float dangerFoodChance = 0.35;
 
 // Chance to generate entity in cell;
-float entityGenerateChance = 0.06;
+float entityGenerateChance = 0.05;
 
+// Field size (more than 10)
 const int fieldWidth = 50;
 const int fieldHeight = 50;
 
@@ -37,7 +37,8 @@ FieldCell fieldZones[fieldHeight + 1][fieldWidth + 1];	// Basic field with zones
 ObjectType fieldFood[fieldHeight + 1][fieldWidth + 1];	// Objects
 Entity fieldEntity[fieldHeight + 1][fieldWidth + 1];	// Entities
 
-int random(int min, int max)	// randim func
+// Random function
+int random(int min, int max)
 {
 	static bool flag;
 	if (!flag)
@@ -48,35 +49,55 @@ int random(int min, int max)	// randim func
 	return min + rand() % (max - min);
 }
 
-// Check all settings
+// Check all settings and change values
 void checkSettings() {
 	if (safeZoneC + mediumZoneC + dangerZoneC != 1.0) {
-		safeZoneC = basicSafeZoneC;
-		mediumZoneC = basicMediumZoneC;
-		dangerZoneC = basicDangerZoneC;
-		cout << "All zones coefficients set to default." << endl;
+		safeZoneC = defaultSafeZoneC;
+		mediumZoneC = defaultMediumZoneC;
+		dangerZoneC = defaultDangerZoneC;
+		cout << warn_prefix << "All zones coefficients set to default." << endl;
+	}
+	if (generations < 1) {
+		generations = defaultGenerations;
+		cout << warn_prefix << "Generations value set to default." << endl;
 	}
 }
 
 // Field layers generators
 
-void generateZoneFieldLayer() {
+// Creating zones layer
+ll safeCount = 0;
+ll mediumCount = 0;
+ll dangerCount = 0;
+int generateZoneFieldLayer() {
 	int mediumZoneStart = fieldWidth * safeZoneC + 1;
 	int dangerZoneStart = fieldWidth * (safeZoneC + mediumZoneC);
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
-			if (j < mediumZoneStart)
+			if (j < mediumZoneStart) {
 				fieldZones[i][j] = { CellType::SAFE, j, i };
-			else if (j >= dangerZoneStart)
+				safeCount++;
+			}
+			else if (j >= dangerZoneStart) {
 				fieldZones[i][j] = { CellType::DANGER, j, i };
-			else
+				mediumCount++;
+			}
+			else {
 				fieldZones[i][j] = { CellType::MEDIUM, j, i };
+				dangerCount++;
+			}
 		}
 	}
+	if (dangerCount == 0 && mediumCount == 0 && safeCount == 0) {
+		cout << error_prefix << "Can't create zones!";
+		return -1;
+	}
+	return 1;
 }
 
-int foodCount = 0;
-void generateFoodFieldLayer() {
+int foodCount = 0;	// Count of food
+// Creating food layer
+int generateFoodFieldLayer() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
 			auto x = fieldZones[i][j];
@@ -113,10 +134,16 @@ void generateFoodFieldLayer() {
 			}
 		}
 	}
+	if (foodCount == 0) {
+		cout << error_prefix << "Can't create food";
+		return -1;
+	}
+	return 1;
 }
 
 int entityC = 0;	// Entity counter
-void generateEntityFieldLayer() {
+// Crating entity layer
+int generateEntityFieldLayer() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
 			if (fieldZones[i][j].type != CellType::SAFE) {
@@ -137,16 +164,15 @@ void generateEntityFieldLayer() {
 				fieldEntity[i][j] = { ObjectType::NONE, {j, i}, 0.0, 0.0, 0.0, 0.0, 0.0, 0 };
 		}
 	}
+	if (entityC == 0) {
+		cout << error_prefix << "Can't create entitites";
+		return -1;
+	}
+	return 1;
 }
 
-void init() {	// Initialization
-	checkSettings();
-	generateZoneFieldLayer();
-	generateFoodFieldLayer();
-	generateEntityFieldLayer();
-}
-
-void printFields() {	// Print food field and entity layer on one layer
+// Print food field and entity layer on one layer with zone borders
+void printFields() {
 	for (int i = 1; i < fieldHeight + 1; i++) {
 		for (int j = 1; j < fieldWidth + 1; j++) {
 			if (fieldZones[i][j].type != fieldZones[i][j - 1].type)
@@ -164,34 +190,38 @@ void printFields() {	// Print food field and entity layer on one layer
 		}
 		cout << " " << i << "\n";
 	}
-	cout << info_prefix << "Entities: " << entityC << "\t Food: " << foodCount;
+	cout << info_prefix << "Entities: " << entityC << "\tFood: " << foodCount << 
+		"\nSafe zone: " << safeCount << "\t Medium zone: " << mediumCount << 
+		"  Danger zone: " << dangerCount << endl;
 }
 
-// Find nearest element from coordinates
-Vec findNearestPoint(Vec pos, ObjectType obj, int rad) {
-	Vec pos1 = { pos.x - rad, pos.y - rad };
-	Vec pos2 = { pos.x + rad, pos.y + rad };
-	if (pos1.x < 1)
-		pos1.x = 1;
-	if (pos1.y < 1)
-		pos1.y = 1;
-	if (pos2.x > fieldWidth)
-		pos2.x = fieldWidth + 1;
-	if (pos2.y > fieldHeight)
-		pos2.y = fieldHeight + 1;
+// Checking coordinates and returning edited value
+Vec checkCords(Vec pos) {
+	if (pos.x < 1)
+		pos.x = 1;
+	if (pos.y < 1)
+		pos.y = 1;
+	if (pos.x > fieldWidth)
+		pos.x = fieldWidth + 1;
+	if (pos.y > fieldHeight)
+		pos.y = fieldHeight + 1;
+	return pos;
+}
+
+// Find nearest food from coordinates
+Vec findNearestFood(Vec pos, int rad) {
+	Vec pos1 = checkCords({ pos.x - rad, pos.y - rad });
+	Vec pos2 = checkCords({ pos.x + rad, pos.y + rad });
 	float min = rad*rad;
-	Vec minV = pos;
+	Vec minV = {-1, -1};
 	for (int i = pos1.y; i < pos2.y; i++) {
 		for (int j = pos1.x; j < pos2.x; j++) {
 			int x = pos.x, y = pos.y;
 			if (fieldFood[i][j] == ObjectType::FOOD) {
 				float length;
-				if (i == y)
-					length = abs(j - x);
-				else if (j == x)
-					length = abs(i - y);
-				else
-					length = sqrt(abs(j - x) + abs(i - y));
+				int a = abs(j - x);
+				int b = abs(i - y);
+				length = sqrt(a*a + b*b);
 				if (length < min) {
 					min = length;
 					minV = { j, i };
@@ -202,8 +232,23 @@ Vec findNearestPoint(Vec pos, ObjectType obj, int rad) {
 	return minV;
 }
 
+// Initialization function
+int init() {
+	checkSettings();
+	if (generateZoneFieldLayer() == -1)
+		return -1;
+	if (generateFoodFieldLayer() == -1)
+		return -1;
+	if (generateEntityFieldLayer() == -1)
+		return -1;
+	return 1;
+}
+
 // Main
 int main() {
-	init();
+	if (init() == -1) {		// If input values contain errors
+		cout << "\nProgramm stopped!";
+		return 0;
+	}
 	printFields();
 }
