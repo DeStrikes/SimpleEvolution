@@ -49,7 +49,7 @@ vector <Entity> allEntities;	// All entities in one list
 // What each skill does you can see in 'Skills.h'
 float eSpeed = 1.0;
 float eArmor = 1.0;
-float eEnergy = 10;
+float eEnergy = 5;
 int eVision = 50;
 float eExtra = 1.0;
 
@@ -291,6 +291,22 @@ Vec findAviableMove(Vec pos) {
 	}
 }
 
+void regenAllEntitiesList() {
+	allEntities.clear();
+	for (int i = 1; i < fieldHeight + 1; i++)
+		for (int j = 1; j < fieldWidth + 1; j++)
+			if (fieldEntity[i][j].type == ObjectType::CELL)
+				allEntities.push_back(fieldEntity[i][j]);
+}
+
+bool entityCanMakeMove(Entity* entity, Movement mov) {
+	float length = mov.length;
+	float energy = length * entity->skill.extra / entity->skill.speed;
+	if (energy + entity->skill.usedEnergy > entity->skill.genEnergy)
+		return false;
+	return true;
+}
+
 // Initialization function
 int init() {
 	checkSettings();
@@ -313,9 +329,9 @@ int main() {
 	// GENERATED FIELD OUTPUT
 	printFields(true);
 
-	// EDITED FIELD OUTPUT AFTER ENTITIES EAT ALL FOOD
+	// EDITED FIELD OUTPUT AFTER ONE GENERATION
 	int moves = 0;
-	while (foodCount > 0) {
+	while (allEntities.size() > 0 && foodCount > 0) {
 		for (int i = 0; i < allEntities.size(); i++) {
 			Entity test = allEntities[i];
 			Vec pos = test.pos;
@@ -326,11 +342,16 @@ int main() {
 			else {
 				foodCount--;
 			}
+			if (!entityCanMakeMove(&test, to)) {
+				allEntities.erase(allEntities.begin() + i);
+				continue;
+			}
 			onEntityMove(pos, to, &test);
 			allEntities[i] = test;
 			moves++;
 		}
 	}
+	regenAllEntitiesList();
 	printFields(true);
 	cout << "MOVES\tENERGY SPENT\n";
 	for (auto x : allEntities)
